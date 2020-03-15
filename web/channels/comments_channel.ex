@@ -7,26 +7,24 @@ defmodule Discuss.CommentsChannel do
     # This will get the topic with the "topic_id" and then load the comment associations
     topic = Topic
       |> Repo.get(topic_id)
-      |> Repo.preload(:comments)
+#     |> Repo.preload(:comments)
+      |> Repo.preload(comments: [:user])
 
     {:ok, %{comments: topic.comments}, assign(socket, :topic, topic)}
   end
 
   def handle_in(name, %{"content" => content}, socket) do
-    IO.puts("++++")
-    IO.inspect(content)
-
     topic = socket.assigns.topic
+    user_id = socket.assigns.user_id
 
-    # TODO - how does build_assoc work
     changeset = topic
-      |> build_assoc(:comments)
+      |> build_assoc(:comments, user_id: user_id)
       |> Comment.changeset(%{content: content})
 
     case Repo.insert(changeset) do
       {:ok, comment} ->
-        broadcast!(socket, "comments:#{socket.assigns.topic.id}:new",
-          %{comment: comment}
+        broadcast!(socket, "comments:#{topic.id}:new",
+          %{comment: Repo.preload(comment, :user)}
         )
         {:reply, :ok, socket}
       {:error, _reason} ->
